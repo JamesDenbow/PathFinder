@@ -1,5 +1,5 @@
 .grid {
-  margin: 40px 0 0;
+  margin: 30px 0 0;
 }
 
 .vertical-center {
@@ -117,10 +117,16 @@
 
 .description {
   font-size: 22px;
-  padding-top: 40px;
+  padding-top: 25px;
 }
 
 .endNode {
   font-size: 32px;
   color: rgb(12, 53, 71);
+}
+
+.disabled {
+  pointer-events: none;
+  text-decoration: none;
+  opacity: 0.5;
 }

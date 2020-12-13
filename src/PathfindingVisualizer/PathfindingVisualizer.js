@@ -15,6 +15,13 @@ export default class PathfindingVisualizer extends Component {
     this.state = {
       grid: [],
       mouseIsPressed: false,
+      moveStart: false,
+      moveFinish: false,
+      startNodeCol: START_NODE_COL,
+      startNodeRow: START_NODE_ROW,
+      finishNodeCol: FINISH_NODE_COL,
+      finishNodeRow: FINISH_NODE_ROW,
+      working: false,
     };
   }
 
@@ -24,18 +31,48 @@ export default class PathfindingVisualizer extends Component {
   }
 
   handleMouseDown(row, col) {
-    const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
-    this.setState({grid: newGrid, mouseIsPressed: true});
+    if (this.state.working) return;
+    const {startNodeCol} = this.state;
+    const {startNodeRow} = this.state;
+    const {finishNodeCol} = this.state;
+    const {finishNodeRow} = this.state;
+    if (row == startNodeRow && col == startNodeCol){
+      this.setState({mouseIsPressed: true, moveStart: true});
+    }
+    else if (row == finishNodeRow && col == finishNodeCol) {
+      this.setState({mouseIsPressed: true, moveFinish: true});
+    }
+    else {
+      const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
+      this.setState({grid: newGrid, mouseIsPressed: true});
+    }
   }
 
   handleMouseEnter(row, col) {
+    if (this.state.working) return;
     if (!this.state.mouseIsPressed) return;
-    const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
-    this.setState({grid: newGrid});
+    if (this.state.moveStart) {
+      const {startNodeCol} = this.state;
+      const {startNodeRow} = this.state;
+      const newGrid2 = updateStart(this.state.grid, startNodeRow, startNodeCol);
+      const newGrid = updateStart(newGrid2, row, col);
+      this.setState({grid: newGrid, startNodeCol: col, startNodeRow: row});
+    }
+    else if (this.state.moveFinish){
+      const {finishNodeCol} = this.state;
+      const {finishNodeRow} = this.state;
+      const newGrid2 = updateFinish(this.state.grid, finishNodeRow, finishNodeCol);
+      const newGrid = updateFinish(newGrid2, row, col);
+      this.setState({grid: newGrid, finishNodeCol: col, finishNodeRow: row});
+    }
+    else {
+      const newGrid = getNewGridWithWallToggled(this.state.grid, row, col);
+      this.setState({grid: newGrid});
+    }
   }
 
   handleMouseUp() {
-    this.setState({mouseIsPressed: false});
+    this.setState({mouseIsPressed: false, moveStart: false, moveFinish: false});
   }
 
   animateDijkstra(visitedNodesInOrder, nodesInShortestPathOrder) {
@@ -72,13 +109,23 @@ export default class PathfindingVisualizer extends Component {
       const node = nodesInShortestPathOrder[x];
       document.getElementById(`node-${node.row}-${node.col}`).className =
         'node node-shortest-path node-finish';
+      document.getElementById(`navGenMaze`).className = 'navItem';
+      document.getElementById(`navClear`).className = 'navItem';
     }, 50 * x);
   }
 
   visualizeDijkstra() {
+    document.getElementById(`navGenMaze`).className = 'navItem disabled';
+    document.getElementById(`navClear`).className = 'navItem disabled';
+    document.getElementById(`navPath`).className = 'visButton vertical-center disabled';
+    this.setState({working: true});
     const {grid} = this.state;
-    const startNode = grid[START_NODE_ROW][START_NODE_COL];
-    const finishNode = grid[FINISH_NODE_ROW][FINISH_NODE_COL];
+    const {startNodeCol} = this.state;
+    const {startNodeRow} = this.state;
+    const {finishNodeCol} = this.state;
+    const {finishNodeRow} = this.state;
+    const startNode = grid[startNodeRow][startNodeCol];
+    const finishNode = grid[finishNodeRow][finishNodeCol];
     const visitedNodesInOrder = dijkstra(grid, startNode, finishNode);
     const nodesInShortestPathOrder = getNodesInShortestPathOrder(finishNode);
     this.animateDijkstra(visitedNodesInOrder, nodesInShortestPathOrder);
@@ -86,26 +133,132 @@ export default class PathfindingVisualizer extends Component {
 
   clearBoard() {
     const grid2 = getInitialGrid();
-    this.setState({grid: grid2});
+    this.setState({grid: grid2, startNodeCol: START_NODE_COL, startNodeRow: START_NODE_ROW, finishNodeRow: FINISH_NODE_ROW, finishNodeCol: FINISH_NODE_COL});
     const {grid} = this.state;
     const len = grid.length;
     const len2 = grid[0].length;
     for (var i = 0; i < len; i++) {
       for (var x = 0; x < len2; x++) {
-        if (i == START_NODE_ROW && x == START_NODE_COL) {
-          document.getElementById(`node-${i}-${x}`).className =
-            'node node-start';
+        if (x == this.state.startNodeCol && i == this.state.startNodeRow) {
+          document.getElementById(`node-${i}-${x}`).className = "node node-start";
         }
-        else if (i == FINISH_NODE_ROW && x == FINISH_NODE_COL) {
-          document.getElementById(`node-${i}-${x}`).className =
-            'node node-finish';
+        else if (x == this.state.finishNodeCol && i == this.state.finishNodeRow) {
+          document.getElementById(`node-${i}-${x}`).className = "node node-finish";
         }
         else {
-          document.getElementById(`node-${i}-${x}`).className =
-            'node';
+          document.getElementById(`node-${i}-${x}`).className = "node";
         }
       }
     }
+    document.getElementById(`navGenMaze`).className = 'navItem';
+    document.getElementById(`navPath`).className = 'visButton vertical-center';
+    this.setState({working: false});
+  }
+
+  genMaze_orientation(width, height) {
+    if (width < height) {
+      return 0;
+    }
+    else if (height < width) {
+      return 1;
+    }
+    else {
+      var rand = Math.random();
+      if (rand < 0.5){
+        return 0;
+      }
+      else {
+        return 1;
+      }
+    }
+  }
+
+  genMaze_divide(grid, x, y, width, height, ori) {
+    console.log('loop');
+    if (width < 2 || height < 2) {
+      console.log('loop-endF');
+      return grid;
+    }
+    else {
+      //Find where the division will be made
+      if (ori == 0) {
+        var waly = y + Math.floor(Math.random() * (height - 2));
+      }
+      else {
+        var walx = x + Math.floor(Math.random() * (width - 2));
+      }
+      //Find the passage within the division
+      if (ori == 0) {
+        var px = walx + Math.floor(Math.random() * width);
+      }
+      else {
+        var py = waly + Math.floor(Math.random() * height);
+      }
+      //Direction wall will be drawn
+      if (ori == 0) {
+        var dx = 0;
+      }
+      else {
+        var dy = 1;
+      }
+      //Draw wall
+      const {startNodeCol} = this.state;
+      const {startNodeRow} = this.state;
+      const {finishNodeCol} = this.state;
+      const {finishNodeRow} = this.state;
+      while ((walx < width) && (waly < height)) {
+        if (!(waly == startNodeCol && walx == startNodeRow) && !(waly == finishNodeCol && walx == finishNodeRow)) {
+          if (walx != px || waly != py){
+            grid = getNewGridWithWallToggled(grid, walx, waly);
+            this.setState({grid});
+          }
+        }
+        walx = walx + dx;
+        waly = waly + dy;
+      }
+
+      //Determine subfields
+      var nx = x;
+      var ny = y;
+      if (ori == 0) {
+        var w = width;
+        var h = waly - y + 1;
+      }
+      else {
+        var w = walx - x + 1;
+        var h = height;
+      }
+      console.log('loop1');
+      grid = this.genMaze_divide(grid, nx, ny, w, h, this.genMaze_orientation(w, h));
+
+      if (ori == 0) {
+        var nx = walx + 1;
+        var ny = y;
+        var w = width;
+        var h = y + height - waly - 1;
+      }
+      else {
+        var nx = x;
+        var ny = waly + 1;
+        var w = x + width - walx - 1;
+        var h = height;
+      }
+      console.log('loop2');
+      grid = this.genMaze_divide(grid, nx, ny, w, h, this.genMaze_orientation(w, h));
+      return grid;
+      console.log('loopEnd');
+    }
+  }
+
+  generateMaze() {
+    document.getElementById(`navGenMaze`).className = 'navItem disabled';
+    document.getElementById(`navClear`).className = 'navItem disabled';
+    document.getElementById(`navPath`).className = 'visButton vertical-center disabled';
+    var {grid} = this.state;
+    grid = this.genMaze_divide(grid, 0, 0, 50, 20, this.genMaze_orientation(50, 20));
+    this.setState({grid});
+    document.getElementById(`navClear`).className = 'navItem';
+    document.getElementById(`navPath`).className = 'visButton vertical-center';
   }
 
   render() {
@@ -114,13 +267,13 @@ export default class PathfindingVisualizer extends Component {
     return (
       <>
         <div className="topMenu">
-          <a href="#" className="vertical-center title"><h1><b>PathFinder</b></h1></a>
+          <a onClick={() => window.location.reload(false)} className="vertical-center title"><h1><b>PathFinder</b></h1></a>
           <span className="vertical-center nav">
             <a href="#" className="navItem">Algorithms <span className="caretDown">▼</span></a>
-            <a href="#" className="navItem">Generate Maze</a>
-            <a onClick={() => this.clearBoard()} className="navItem">Clear Board</a>
+            <a id="navGenMaze" onClick={() => this.generateMaze()} className="navItem">Generate Maze</a>
+            <a id="navClear" onClick={() => this.clearBoard()} className="navItem">Clear Board</a>
           </span>
-          <button className="visButton vertical-center" onClick={() => this.visualizeDijkstra()}>
+          <button id="navPath" className="visButton vertical-center" onClick={() => this.visualizeDijkstra()}>
             Find Path
           </button>
         </div>
@@ -197,6 +350,28 @@ const getNewGridWithWallToggled = (grid, row, col) => {
   const newNode = {
     ...node,
     isWall: !node.isWall,
+  };
+  newGrid[row][col] = newNode;
+  return newGrid;
+};
+
+const updateStart = (grid, row, col) => {
+  const newGrid = grid.slice();
+  const node = newGrid[row][col];
+  const newNode = {
+    ...node,
+    isStart: !node.isStart,
+  };
+  newGrid[row][col] = newNode;
+  return newGrid;
+};
+
+const updateFinish = (grid, row, col) => {
+  const newGrid = grid.slice();
+  const node = newGrid[row][col];
+  const newNode = {
+    ...node,
+    isFinish: !node.isFinish,
   };
   newGrid[row][col] = newNode;
   return newGrid;
