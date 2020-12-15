@@ -9,6 +9,8 @@ const START_NODE_COL = 15;
 const FINISH_NODE_ROW = 10;
 const FINISH_NODE_COL = 35;
 
+var wallcount = 0;
+
 export default class PathfindingVisualizer extends Component {
   constructor() {
     super();
@@ -36,10 +38,10 @@ export default class PathfindingVisualizer extends Component {
     const {startNodeRow} = this.state;
     const {finishNodeCol} = this.state;
     const {finishNodeRow} = this.state;
-    if (row == startNodeRow && col == startNodeCol){
+    if (row === startNodeRow && col === startNodeCol){
       this.setState({mouseIsPressed: true, moveStart: true});
     }
-    else if (row == finishNodeRow && col == finishNodeCol) {
+    else if (row === finishNodeRow && col === finishNodeCol) {
       this.setState({mouseIsPressed: true, moveFinish: true});
     }
     else {
@@ -75,8 +77,11 @@ export default class PathfindingVisualizer extends Component {
     this.setState({mouseIsPressed: false, moveStart: false, moveFinish: false});
   }
 
-  animateDijkstra(visitedNodesInOrder, nodesInShortestPathOrder) {
-    for (let i = 0; i <= visitedNodesInOrder.length; i++) {
+  animateSearch(visitedNodesInOrder, nodesInShortestPathOrder) {
+    const node2 = visitedNodesInOrder[0];
+    document.getElementById(`node-${node2.row}-${node2.col}`).className =
+      'node node-visited node-start';
+    for (let i = 1; i <= visitedNodesInOrder.length; i++) {
       if (i === visitedNodesInOrder.length) {
         setTimeout(() => {
           this.animateShortestPath(nodesInShortestPathOrder);
@@ -85,8 +90,14 @@ export default class PathfindingVisualizer extends Component {
       }
       const node = visitedNodesInOrder[i];
       setTimeout(() => {
-        document.getElementById(`node-${node.row}-${node.col}`).className =
-          'node node-visited';
+        if (i === (visitedNodesInOrder.length - 1)){
+          document.getElementById(`node-${node.row}-${node.col}`).className =
+            'node node-visited node-finish';
+        }
+        else {
+          document.getElementById(`node-${node.row}-${node.col}`).className =
+            'node node-visited';
+        }
       }, 10 * i);
     }
   }
@@ -124,11 +135,14 @@ export default class PathfindingVisualizer extends Component {
     const {startNodeRow} = this.state;
     const {finishNodeCol} = this.state;
     const {finishNodeRow} = this.state;
-    const startNode = grid[startNodeRow][startNodeCol];
-    const finishNode = grid[finishNodeRow][finishNodeCol];
-    const visitedNodesInOrder = dijkstra(grid, startNode, finishNode);
+    const newGrid = removeWall(grid, startNodeRow, startNodeCol);
+    const newGrid2 = removeWall(newGrid, finishNodeRow, finishNodeCol);
+    this.setState({grid: newGrid2});
+    const startNode = newGrid2[startNodeRow][startNodeCol];
+    const finishNode = newGrid2[finishNodeRow][finishNodeCol];
+    const visitedNodesInOrder = dijkstra(newGrid2, startNode, finishNode);
     const nodesInShortestPathOrder = getNodesInShortestPathOrder(finishNode);
-    this.animateDijkstra(visitedNodesInOrder, nodesInShortestPathOrder);
+    this.animateSearch(visitedNodesInOrder, nodesInShortestPathOrder);
   }
 
   clearBoard() {
@@ -139,10 +153,10 @@ export default class PathfindingVisualizer extends Component {
     const len2 = grid[0].length;
     for (var i = 0; i < len; i++) {
       for (var x = 0; x < len2; x++) {
-        if (x == this.state.startNodeCol && i == this.state.startNodeRow) {
+        if (x === this.state.startNodeCol && i === this.state.startNodeRow) {
           document.getElementById(`node-${i}-${x}`).className = "node node-start";
         }
-        else if (x == this.state.finishNodeCol && i == this.state.finishNodeRow) {
+        else if (x === this.state.finishNodeCol && i === this.state.finishNodeRow) {
           document.getElementById(`node-${i}-${x}`).className = "node node-finish";
         }
         else {
@@ -157,97 +171,60 @@ export default class PathfindingVisualizer extends Component {
 
   genMaze_orientation(width, height) {
     if (width < height) {
-      return 0;
+      return 'h';
     }
     else if (height < width) {
-      return 1;
+      return 'v';
     }
     else {
       var rand = Math.random();
       if (rand < 0.5){
-        return 0;
+        return 'h';
       }
       else {
-        return 1;
+        return 'v';
       }
     }
   }
 
-  genMaze_divide(grid, x, y, width, height, ori) {
-    console.log('loop');
-    if (width < 2 || height < 2) {
-      console.log('loop-endF');
-      return grid;
-    }
-    else {
-      //Find where the division will be made
-      if (ori == 0) {
-        var waly = y + Math.floor(Math.random() * (height - 2));
+  randomIntRange(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+  }
+
+  genMaze_divide(grid, x, y, x2, y2, ori) {
+    if (ori === 'h' ){
+      if ((x2 - x) < 2) {
+        return grid;
       }
       else {
-        var walx = x + Math.floor(Math.random() * (width - 2));
-      }
-      //Find the passage within the division
-      if (ori == 0) {
-        var px = walx + Math.floor(Math.random() * width);
-      }
-      else {
-        var py = waly + Math.floor(Math.random() * height);
-      }
-      //Direction wall will be drawn
-      if (ori == 0) {
-        var dx = 0;
-      }
-      else {
-        var dy = 1;
-      }
-      //Draw wall
-      const {startNodeCol} = this.state;
-      const {startNodeRow} = this.state;
-      const {finishNodeCol} = this.state;
-      const {finishNodeRow} = this.state;
-      while ((walx < width) && (waly < height)) {
-        if (!(waly == startNodeCol && walx == startNodeRow) && !(waly == finishNodeCol && walx == finishNodeRow)) {
-          if (walx != px || waly != py){
-            grid = getNewGridWithWallToggled(grid, walx, waly);
-            this.setState({grid});
+        var difY = Math.floor(this.randomIntRange(y, y2) / 2) * 2;
+        var hole = Math.floor(this.randomIntRange(x, x2) / 2) * 2 + 1;
+        for (var i = x; i <= x2; i++){
+          if (i !== hole) {
+            grid = getNewGridWithWallToggled(grid, difY, i);
           }
         }
-        walx = walx + dx;
-        waly = waly + dy;
+        grid = this.genMaze_divide(grid, x, y, x2, (difY - 1), this.genMaze_orientation((x2 - x), ((difY - 1) - y)));
+        grid = this.genMaze_divide(grid, x, (difY + 1), x2, y2, this.genMaze_orientation((x2 - x), (y2 - (difY + 1))));
       }
-
-      //Determine subfields
-      var nx = x;
-      var ny = y;
-      if (ori == 0) {
-        var w = width;
-        var h = waly - y + 1;
-      }
-      else {
-        var w = walx - x + 1;
-        var h = height;
-      }
-      console.log('loop1');
-      grid = this.genMaze_divide(grid, nx, ny, w, h, this.genMaze_orientation(w, h));
-
-      if (ori == 0) {
-        var nx = walx + 1;
-        var ny = y;
-        var w = width;
-        var h = y + height - waly - 1;
-      }
-      else {
-        var nx = x;
-        var ny = waly + 1;
-        var w = x + width - walx - 1;
-        var h = height;
-      }
-      console.log('loop2');
-      grid = this.genMaze_divide(grid, nx, ny, w, h, this.genMaze_orientation(w, h));
-      return grid;
-      console.log('loopEnd');
     }
+    else {
+      if ((y2 - y) < 2) {
+        return grid;
+      }
+      else {
+        var difX = Math.floor(this.randomIntRange(x, x2) / 2) * 2;
+        var hole = Math.floor(this.randomIntRange(y, y2) / 2) * 2 + 1;
+        for (var i = y; i <= y2; i++){
+          if (i !== hole) {
+            grid = getNewGridWithWallToggled(grid, i, difX);
+          }
+        }
+        grid = this.genMaze_divide(grid, x, y, (difX - 1), y2, this.genMaze_orientation(((difX - 1) - x), (y2 - y)));
+        grid = this.genMaze_divide(grid, (difX + 1), y, x2, y2, this.genMaze_orientation((x2 - (difX + 1)), (y2 - y)));
+      }
+    }
+    return grid;
   }
 
   generateMaze() {
@@ -255,10 +232,48 @@ export default class PathfindingVisualizer extends Component {
     document.getElementById(`navClear`).className = 'navItem disabled';
     document.getElementById(`navPath`).className = 'visButton vertical-center disabled';
     var {grid} = this.state;
-    grid = this.genMaze_divide(grid, 0, 0, 50, 20, this.genMaze_orientation(50, 20));
+    grid = this.genMaze_divide(grid, 0, 0, 49, 19, this.genMaze_orientation(49, 19));
     this.setState({grid});
     document.getElementById(`navClear`).className = 'navItem';
     document.getElementById(`navPath`).className = 'visButton vertical-center';
+  }
+
+  dropdownToggle() {
+    document.getElementById("dropbtn").className = 'navItem disabled';
+    document.getElementById("dropdown").className = 'dropdown-content show';
+  }
+
+  selectAlgoDijkstra() {
+    document.getElementById("selectDijkstra").className = 'active disabled';
+    document.getElementById("selectASearch").className = '';
+    document.getElementById("selectGreedy").className = '';
+    document.getElementById("descNo").className = 'description hide';
+    document.getElementById("descDijkstra").className = 'description show';
+    document.getElementById("descASearch").className = 'description hide';
+    document.getElementById("descGreedy").className = 'description hide';
+    document.getElementById("navPath").className = 'visButton vertical-center';
+  }
+
+  selectAlgoASearch() {
+    document.getElementById("selectDijkstra").className = '';
+    document.getElementById("selectASearch").className = 'active disabled';
+    document.getElementById("selectGreedy").className = '';
+    document.getElementById("descNo").className = 'description hide';
+    document.getElementById("descDijkstra").className = 'description hide';
+    document.getElementById("descASearch").className = 'description show';
+    document.getElementById("descGreedy").className = 'description hide';
+    document.getElementById("navPath").className = 'visButton vertical-center';
+  }
+
+  selectAlgoGreedy() {
+    document.getElementById("selectDijkstra").className = '';
+    document.getElementById("selectASearch").className = '';
+    document.getElementById("selectGreedy").className = 'active disabled';
+    document.getElementById("descNo").className = 'description hide';
+    document.getElementById("descDijkstra").className = 'description hide';
+    document.getElementById("descASearch").className = 'description hide';
+    document.getElementById("descGreedy").className = 'description show';
+    document.getElementById("navPath").className = 'visButton vertical-center';
   }
 
   render() {
@@ -269,11 +284,11 @@ export default class PathfindingVisualizer extends Component {
         <div className="topMenu">
           <a onClick={() => window.location.reload(false)} className="vertical-center title"><h1><b>PathFinder</b></h1></a>
           <span className="vertical-center nav">
-            <a href="#" className="navItem">Algorithms <span className="caretDown">▼</span></a>
+            <a id="dropbtn" onClick={() => this.dropdownToggle()} href="#" className="navItem act">Algorithms <span className="caretDown">▼</span></a>
             <a id="navGenMaze" onClick={() => this.generateMaze()} className="navItem">Generate Maze</a>
             <a id="navClear" onClick={() => this.clearBoard()} className="navItem">Clear Board</a>
           </span>
-          <button id="navPath" className="visButton vertical-center" onClick={() => this.visualizeDijkstra()}>
+          <button id="navPath" className="visButton vertical-center disabled" onClick={() => this.visualizeDijkstra()}>
             Find Path
           </button>
         </div>
@@ -285,8 +300,24 @@ export default class PathfindingVisualizer extends Component {
           <span className="keyMenuItem"><span className="nodeExample3"></span> Path Node</span>
           <span className="keyMenuItem"><span className="nodeExample4"></span> Wall Node</span>
         </div>
-        <div className="description">
+        <div id="descNo" className="description">
+          <b>Select an algorithm!</b>
+        </div>
+        <div id="descDijkstra" className="description hide">
           <b>Dijkstra Algorithm</b>: the original pathfinding algorithm - weighted - guarantees the shortest path
+        </div>
+        <div id="descASearch" className="description hide">
+          <b>A* Search</b>: the best pathfinding algorithm - weighted - guarantees the shortest path
+        </div>
+        <div id="descGreedy" className="description hide">
+          <b>Greedy</b>: the fast pathfinding algorithm - weighted - does not guarantee the shortest path
+        </div>
+        <div id="dropdown" className="dropdown-content hide">
+          <ul>
+            <a id="selectDijkstra" href="#" onClick={() => this.selectAlgoDijkstra()}>Dijkstra</a>
+            <a id="selectASearch" href="#" onClick={() => this.selectAlgoASearch()}>A* Search</a>
+            <a id="selectGreedy" href="#" onClick={() => this.selectAlgoGreedy()}>Greedy Best-First</a>
+          </ul>
         </div>
         <div className="grid">
           {grid.map((row, rowIdx) => {
@@ -376,3 +407,14 @@ const updateFinish = (grid, row, col) => {
   newGrid[row][col] = newNode;
   return newGrid;
 };
+
+const removeWall = (grid, row, col) => {
+  const newGrid = grid.slice();
+  const node = newGrid[row][col];
+  const newNode = {
+    ...node,
+    isWall: false,
+  };
+  newGrid[row][col] = newNode;
+  return newGrid;
+}

@@ -20,7 +20,7 @@ export default class Modal extends Component {
   }
 
   render() {
-    if (this.state.show == false) {
+    if (this.state.show === false) {
       return null;
     }
     return (
