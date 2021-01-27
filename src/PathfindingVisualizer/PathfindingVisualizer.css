@@ -131,10 +131,6 @@
   opacity: 0.5;
 }
 
-.show {display:block;}
-
-.hide {display: none;}
-
 .dropdown-content {
   position: absolute;
   background-color: #333;
@@ -167,3 +163,7 @@
   position: relative;
   display: inline-block;
 }
+
+.show {display:block;}
+
+.hide {display: none;}

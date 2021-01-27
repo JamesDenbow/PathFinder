@@ -120,3 +120,33 @@
      transition: width 0.5s 0.5s, height 0.5s 0.5s, opacity 0.5s;
 
 }
+
+.modal-content2 {
+  background-color: #fefefe;
+  margin: 5% auto; /* 15% from the top and centered */
+  border: 2px solid #888;
+  width: 60%;
+  box-shadow: 10px 10px 5px grey;
+  min-width: 655px;
+  max-width: 800px;
+}
+
+.modal-content2 img {
+  height: 90%;
+  width: 90%;
+}
+
+.modal-content2 h3 {
+  font-size: 30px;
+  margin-bottom: -25px;
+}
+
+.modal-content2 h1 {
+  color: rgba(0, 217, 159, 0.75);
+  text-shadow: 2px 2px 0px #333;
+  font-size: 50px;
+}
+
+.modal-content2 p {
+  font-size: 20px;
+}

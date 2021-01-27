@@ -1,6 +1,7 @@
 import React, {Component} from 'react';
 import Node from './Node/Node';
-import {dijkstra, getNodesInShortestPathOrder} from '../algorithms/dijkstra';
+import {dijkstra, getNodesInShortestPathOrderDijkstra} from '../algorithms/dijkstra';
+import {astar, getNodesInShortestPathOrderAstar} from '../algorithms/astar';
 
 import './PathfindingVisualizer.css';
 
@@ -8,8 +9,6 @@ const START_NODE_ROW = 10;
 const START_NODE_COL = 15;
 const FINISH_NODE_ROW = 10;
 const FINISH_NODE_COL = 35;
-
-var wallcount = 0;
 
 export default class PathfindingVisualizer extends Component {
   constructor() {
@@ -30,6 +29,12 @@ export default class PathfindingVisualizer extends Component {
   componentDidMount() {
     const grid = getInitialGrid();
     this.setState({grid});
+    window.onclick = function(event) {
+      if (!event.target.matches('#dropbtn')) {
+        document.getElementById("dropdown").className = 'dropdown-content hide';
+        document.getElementById("dropbtn").className = 'navItem';
+      }
+    }
   }
 
   handleMouseDown(row, col) {
@@ -77,14 +82,14 @@ export default class PathfindingVisualizer extends Component {
     this.setState({mouseIsPressed: false, moveStart: false, moveFinish: false});
   }
 
-  animateSearch(visitedNodesInOrder, nodesInShortestPathOrder) {
+  animateSearch(visitedNodesInOrder, nodesInShortestPathOrder, algo) {
     const node2 = visitedNodesInOrder[0];
     document.getElementById(`node-${node2.row}-${node2.col}`).className =
       'node node-visited node-start';
     for (let i = 1; i <= visitedNodesInOrder.length; i++) {
       if (i === visitedNodesInOrder.length) {
         setTimeout(() => {
-          this.animateShortestPath(nodesInShortestPathOrder);
+          this.animateShortestPath(nodesInShortestPathOrder, algo);
         }, 10 * i);
         return;
       }
@@ -102,7 +107,7 @@ export default class PathfindingVisualizer extends Component {
     }
   }
 
-  animateShortestPath(nodesInShortestPathOrder) {
+  animateShortestPath(nodesInShortestPathOrder, algo) {
     setTimeout(() => {
       const node = nodesInShortestPathOrder[0];
       document.getElementById(`node-${node.row}-${node.col}`).className =
@@ -122,13 +127,22 @@ export default class PathfindingVisualizer extends Component {
         'node node-shortest-path node-finish';
       document.getElementById(`navGenMaze`).className = 'navItem';
       document.getElementById(`navClear`).className = 'navItem';
+      document.getElementById(`navClearP`).className = 'navItem';
+      if (algo === 1) {
+        document.getElementById(`navPathDijkstra`).className = 'visButton vertical-center';
+      }
+      else if (algo === 2) {
+        document.getElementById(`navPathASearch`).className = 'visButton vertical-center';
+      }
     }, 50 * x);
   }
 
   visualizeDijkstra() {
     document.getElementById(`navGenMaze`).className = 'navItem disabled';
     document.getElementById(`navClear`).className = 'navItem disabled';
-    document.getElementById(`navPath`).className = 'visButton vertical-center disabled';
+    document.getElementById(`navClearP`).className = 'navItem disabled';
+    document.getElementById(`navPathDijkstra`).className = 'visButton vertical-center disabled';
+    this.clearPath();
     this.setState({working: true});
     const {grid} = this.state;
     const {startNodeCol} = this.state;
@@ -141,8 +155,30 @@ export default class PathfindingVisualizer extends Component {
     const startNode = newGrid2[startNodeRow][startNodeCol];
     const finishNode = newGrid2[finishNodeRow][finishNodeCol];
     const visitedNodesInOrder = dijkstra(newGrid2, startNode, finishNode);
-    const nodesInShortestPathOrder = getNodesInShortestPathOrder(finishNode);
-    this.animateSearch(visitedNodesInOrder, nodesInShortestPathOrder);
+    const nodesInShortestPathOrder = getNodesInShortestPathOrderDijkstra(finishNode);
+    this.animateSearch(visitedNodesInOrder, nodesInShortestPathOrder, 1);
+  }
+
+  visualizeASearch() {
+    document.getElementById(`navGenMaze`).className = 'navItem disabled';
+    document.getElementById(`navClear`).className = 'navItem disabled';
+    document.getElementById(`navClearP`).className = 'navItem disabled';
+    document.getElementById(`navPathASearch`).className = 'visButton vertical-center disabled';
+    this.clearPath();
+    this.setState({working: true});
+    const {grid} = this.state;
+    const {startNodeCol} = this.state;
+    const {startNodeRow} = this.state;
+    const {finishNodeCol} = this.state;
+    const {finishNodeRow} = this.state;
+    const newGrid = removeWall(grid, startNodeRow, startNodeCol);
+    const newGrid2 = removeWall(newGrid, finishNodeRow, finishNodeCol);
+    this.setState({grid: newGrid2});
+    const startNode = newGrid2[startNodeRow][startNodeCol];
+    const finishNode = newGrid2[finishNodeRow][finishNodeCol];
+    const visitedNodesInOrder = astar(newGrid2, startNode, finishNode);
+    const nodesInShortestPathOrder = getNodesInShortestPathOrderAstar(finishNode);
+    this.animateSearch(visitedNodesInOrder, nodesInShortestPathOrder, 2);
   }
 
   clearBoard() {
@@ -165,8 +201,31 @@ export default class PathfindingVisualizer extends Component {
       }
     }
     document.getElementById(`navGenMaze`).className = 'navItem';
-    document.getElementById(`navPath`).className = 'visButton vertical-center';
     this.setState({working: false});
+  }
+
+  clearPath(){
+    const {grid} = this.state;
+    const len = grid.length;
+    const len2 = grid[0].length;
+    for (var i = 0; i < len; i++) {
+      for (var x = 0; x < len2; x++) {
+        if (x === this.state.startNodeCol && i === this.state.startNodeRow) {
+          document.getElementById(`node-${i}-${x}`).className = "node node-start";
+        }
+        else if (x === this.state.finishNodeCol && i === this.state.finishNodeRow) {
+          document.getElementById(`node-${i}-${x}`).className = "node node-finish";
+        }
+        else {
+          if(grid[i][x].isWall === false){
+            document.getElementById(`node-${i}-${x}`).className = "node";
+          }
+          else {
+            document.getElementById(`node-${i}-${x}`).className = "node node-wall";
+          }
+        }
+      }
+    }
   }
 
   genMaze_orientation(width, height) {
@@ -230,50 +289,41 @@ export default class PathfindingVisualizer extends Component {
   generateMaze() {
     document.getElementById(`navGenMaze`).className = 'navItem disabled';
     document.getElementById(`navClear`).className = 'navItem disabled';
-    document.getElementById(`navPath`).className = 'visButton vertical-center disabled';
+    document.getElementById(`navClearP`).className = 'navItem disabled';
     var {grid} = this.state;
     grid = this.genMaze_divide(grid, 0, 0, 49, 19, this.genMaze_orientation(49, 19));
     this.setState({grid});
     document.getElementById(`navClear`).className = 'navItem';
-    document.getElementById(`navPath`).className = 'visButton vertical-center';
+    document.getElementById(`navClearP`).className = 'navItem';
+  }
+
+  selectAlgoDijkstra() {
+    this.clearPath();
+    document.getElementById("selectDijkstra").className = 'active disabled';
+    document.getElementById("selectASearch").className = '';
+    document.getElementById("descNo").className = 'description hide';
+    document.getElementById("descDijkstra").className = 'description show';
+    document.getElementById("descASearch").className = 'description hide';
+    document.getElementById("navPathNo").className = 'visButton vertical-center disabled hide';
+    document.getElementById("navPathDijkstra").className = 'visButton vertical-center';
+    document.getElementById("navPathASearch").className = 'visButton vertical-center hide';
+  }
+
+  selectAlgoASearch() {
+    this.clearPath();
+    document.getElementById("selectDijkstra").className = '';
+    document.getElementById("selectASearch").className = 'active disabled';
+    document.getElementById("descNo").className = 'description hide';
+    document.getElementById("descDijkstra").className = 'description hide';
+    document.getElementById("descASearch").className = 'description show';
+    document.getElementById("navPathNo").className = 'visButton vertical-center disabled hide';
+    document.getElementById("navPathDijkstra").className = 'visButton vertical-center hide';
+    document.getElementById("navPathASearch").className = 'visButton vertical-center';
   }
 
   dropdownToggle() {
     document.getElementById("dropbtn").className = 'navItem disabled';
     document.getElementById("dropdown").className = 'dropdown-content show';
-  }
-
-  selectAlgoDijkstra() {
-    document.getElementById("selectDijkstra").className = 'active disabled';
-    document.getElementById("selectASearch").className = '';
-    document.getElementById("selectGreedy").className = '';
-    document.getElementById("descNo").className = 'description hide';
-    document.getElementById("descDijkstra").className = 'description show';
-    document.getElementById("descASearch").className = 'description hide';
-    document.getElementById("descGreedy").className = 'description hide';
-    document.getElementById("navPath").className = 'visButton vertical-center';
-  }
-
-  selectAlgoASearch() {
-    document.getElementById("selectDijkstra").className = '';
-    document.getElementById("selectASearch").className = 'active disabled';
-    document.getElementById("selectGreedy").className = '';
-    document.getElementById("descNo").className = 'description hide';
-    document.getElementById("descDijkstra").className = 'description hide';
-    document.getElementById("descASearch").className = 'description show';
-    document.getElementById("descGreedy").className = 'description hide';
-    document.getElementById("navPath").className = 'visButton vertical-center';
-  }
-
-  selectAlgoGreedy() {
-    document.getElementById("selectDijkstra").className = '';
-    document.getElementById("selectASearch").className = '';
-    document.getElementById("selectGreedy").className = 'active disabled';
-    document.getElementById("descNo").className = 'description hide';
-    document.getElementById("descDijkstra").className = 'description hide';
-    document.getElementById("descASearch").className = 'description hide';
-    document.getElementById("descGreedy").className = 'description show';
-    document.getElementById("navPath").className = 'visButton vertical-center';
   }
 
   render() {
@@ -284,13 +334,14 @@ export default class PathfindingVisualizer extends Component {
         <div className="topMenu">
           <a onClick={() => window.location.reload(false)} className="vertical-center title"><h1><b>PathFinder</b></h1></a>
           <span className="vertical-center nav">
-            <a id="dropbtn" onClick={() => this.dropdownToggle()} href="#" className="navItem act">Algorithms <span className="caretDown">▼</span></a>
+            <a id="dropbtn" onClick={() => this.dropdownToggle()} href="#" className="navItem">Algorithms <span className="caretDown">▼</span></a>
             <a id="navGenMaze" onClick={() => this.generateMaze()} className="navItem">Generate Maze</a>
             <a id="navClear" onClick={() => this.clearBoard()} className="navItem">Clear Board</a>
+            <a id="navClearP" onClick={() => this.clearPath()} className="navItem">Clear Path</a>
           </span>
-          <button id="navPath" className="visButton vertical-center disabled" onClick={() => this.visualizeDijkstra()}>
-            Find Path
-          </button>
+          <button id="navPathNo" className="visButton vertical-center disabled">Find Path</button>
+          <button id="navPathDijkstra" className="visButton vertical-center hide" onClick={() => this.visualizeDijkstra()}>Find Path</button>
+          <button id="navPathASearch" className="visButton vertical-center hide" onClick={() => this.visualizeASearch()}>Find Path</button>
         </div>
         <div className="keyMenu">
           <span className="keyMenuItem"><span className="endNode">★</span> Start Node</span>
@@ -309,14 +360,10 @@ export default class PathfindingVisualizer extends Component {
         <div id="descASearch" className="description hide">
           <b>A* Search</b>: the best pathfinding algorithm - weighted - guarantees the shortest path
         </div>
-        <div id="descGreedy" className="description hide">
-          <b>Greedy</b>: the fast pathfinding algorithm - weighted - does not guarantee the shortest path
-        </div>
         <div id="dropdown" className="dropdown-content hide">
           <ul>
             <a id="selectDijkstra" href="#" onClick={() => this.selectAlgoDijkstra()}>Dijkstra</a>
             <a id="selectASearch" href="#" onClick={() => this.selectAlgoASearch()}>A* Search</a>
-            <a id="selectGreedy" href="#" onClick={() => this.selectAlgoGreedy()}>Greedy Best-First</a>
           </ul>
         </div>
         <div className="grid">
